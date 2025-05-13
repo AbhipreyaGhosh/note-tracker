@@ -1,75 +1,182 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Button,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 
 export default function HomeScreen() {
+  const [application, setApplication] = useState('');
+  const [password, setPassword] = useState('');
+  const [entries, setEntries] = useState<{ app: string; password: string }[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Load saved entries
+  useEffect(() => {
+    const loadEntries = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('entries');
+        if (saved) {
+          setEntries(JSON.parse(saved));
+        }
+      } catch (err) {
+        console.error('Failed to load entries', err);
+      }
+    };
+
+    loadEntries();
+  }, []);
+
+  // Save a new entry
+  const saveEntry = async () => {
+    if (!application.trim() || !password.trim()) {
+      Alert.alert('Missing Info', 'Please fill in both fields.');
+      return;
+    }
+
+    const newEntry = { app: application, password };
+    const updatedEntries = [...entries, newEntry];
+    setEntries(updatedEntries);
+    setApplication('');
+    setPassword('');
+
+    try {
+      await AsyncStorage.setItem('entries', JSON.stringify(updatedEntries));
+    } catch (err) {
+      console.error('Save failed', err);
+    }
+  };
+
+  // Remove an entry
+  const removeEntry = async (index: number) => {
+    const filtered = entries.filter((_, i) => i !== index);
+    setEntries(filtered);
+    try {
+      await AsyncStorage.setItem('entries', JSON.stringify(filtered));
+    } catch (err) {
+      console.error('Delete failed', err);
+    }
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View style={styles.container}>
+      <Text style={styles.header}>🔐 Password Manager</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Application name"
+        placeholderTextColor="#999"
+        value={application}
+        onChangeText={setApplication}
+      />
+
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Password"
+          placeholderTextColor="#999"
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color="#555" />
+        </TouchableOpacity>
+      </View>
+
+      <Button title="Save Entry" onPress={saveEntry} color="#007AFF" />
+
+      <FlatList
+        data={entries}
+        keyExtractor={(_, i) => i.toString()}
+        style={{ marginTop: 20 }}
+        renderItem={({ item, index }) => (
+          <View style={styles.entry}>
+            <Text style={styles.entryText}>
+              <Text style={styles.appName}>{item.app}</Text>: {item.password}
+            </Text>
+            <TouchableOpacity onPress={() => removeEntry(index)} style={styles.deleteButton}>
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    paddingTop: 120,
+    padding: 20,
+    backgroundColor: '#F2F2F2',
+  },
+  header: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333',
+  },
+  input: {
+    backgroundColor: '#fff',
+    padding: 12,
+    fontSize: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginBottom: 15,
+  },
+  passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 10,
+    marginBottom: 15,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  passwordInput: {
+    flex: 1,
+    height: 45,
+    fontSize: 16,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  entry: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    elevation: 2,
+  },
+  entryText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  appName: {
+    fontWeight: 'bold',
+    color: '#111',
+  },
+  deleteButton: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+    justifyContent: 'center',
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 14,
   },
 });
